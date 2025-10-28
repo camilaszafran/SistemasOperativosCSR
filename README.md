@@ -1,6 +1,5 @@
 # SistemasOperativosCSR
-// ...existing code...
-# SistemasOperativosCSR
+
 
 Proyecto de ejemplo para la materia de Sistemas Operativos.
 
@@ -16,4 +15,5 @@ Cómo usar
 - Clona el proyecto
 - Agrega tu código en carpetas por práctica
 - Documenta cambios y tareas en el README
+
 
