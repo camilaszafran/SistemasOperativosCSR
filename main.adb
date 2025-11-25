@@ -1,13 +1,10 @@
-with Ada.Text_IO;                 -- Librería para imprimir texto en pantalla
-with Ada.Numerics.Float_Random;  -- Librería para generar números aleatorios
+with Ada.Text_IO;
+with Ada.Numerics.Float_Random;
 use Ada.Text_IO;
 use Ada.Numerics.Float_Random;
 
 procedure Main is
 
-   --------------------------------------------------------------------
-   -- CONSTANTES Y VARIABLES GLOBALES
-   --------------------------------------------------------------------
    -- Acá definimos los límites del problema (cuántas vacas y capacidades)
    NUM_VACAS : constant Integer := 100;
    CAPACIDAD_ORDEÑE : constant Integer := 15;
@@ -17,15 +14,10 @@ procedure Main is
    -- Generador de números aleatorios (para simular los tiempos variables)
    Gen : Generator;
 
-   --------------------------------------------------------------------
-   -- SALA DE ORDEÑE (máximo 15 vacas a la vez)
-   --------------------------------------------------------------------
-   -- Un "protected object" en Ada es como un recurso compartido protegido,
-   -- parecido a un semáforo o monitor. Sirve para controlar el acceso
-   -- concurrente de varias tareas (vacas en este caso).
+  -- Recurso compartido sala_ordeñe
    protected Sala_Ordeñe is
-      entry Entrar(Id : Integer);  -- Entrada al área de ordeñe
-      procedure Salir(Id : Integer); -- Salida del área de ordeñe
+      entry Entrar(Id : Integer);
+      procedure Salir(Id : Integer);
    private
       En_Sala : Integer := 0;      -- Contador de vacas actualmente ordeñándose
    end Sala_Ordeñe;
@@ -34,78 +26,68 @@ procedure Main is
       entry Entrar(Id : Integer) when En_Sala < CAPACIDAD_ORDEÑE is
       begin
          En_Sala := En_Sala + 1;
-         Put_Line("La vaca " & Integer'Image(Id) & " está entrando al área de ordeñe");
+         Put_Line("La vaca " & Integer'Image(Id) & " esta entrando al area de ordenie");
       end Entrar;
 
       procedure Salir(Id : Integer) is
       begin
          En_Sala := En_Sala - 1;
-         Put_Line("La vaca " & Integer'Image(Id) & " está saliendo del área de ordeñe");
+         Put_Line("La vaca " & Integer'Image(Id) & " esta saliendo del area de ordenie");
       end Salir;
    end Sala_Ordeñe;
 
 
-   --------------------------------------------------------------------
-   -- PASILLO DE VACUNACIÓN (solo una vaca a la vez)
-   --------------------------------------------------------------------
-   -- El pasillo sirve tanto para entrar como para salir de las mangas.
-   -- Por eso sólo puede haber una vaca a la vez usándolo.
+  -- Recurso compartido Pasillo
    protected Pasillo is
       entry Entrar(Id : Integer);
       procedure Salir(Id : Integer);
    private
-      Ocupado : Boolean := False;  -- Indica si el pasillo está siendo usado
+      Ocupado : Boolean := False;
    end Pasillo;
 
    protected body Pasillo is
       entry Entrar(Id : Integer) when not Ocupado is
       begin
          Ocupado := True;
-         Put_Line("La vaca " & Integer'Image(Id) & " está entrando al pasillo de vacunación");
+         Put_Line("La vaca " & Integer'Image(Id) & " esta entrando al pasillo de vacunacion");
       end Entrar;
 
       procedure Salir(Id : Integer) is
       begin
          Ocupado := False;
-         Put_Line("La vaca " & Integer'Image(Id) & " salió del pasillo de vacunación");
+         Put_Line("La vaca " & Integer'Image(Id) & " salio del pasillo de vacunacion");
       end Salir;
    end Pasillo;
 
 
-   --------------------------------------------------------------------
-   -- ÁREA DE VACUNACIÓN (máximo 5 vacas a la vez)
-   --------------------------------------------------------------------
-   -- Controla que solo 5 vacas estén siendo vacunadas al mismo tiempo.
+   -- Recurso compartido Area_Vacunacion
    protected Area_Vacunacion is
       entry Entrar(Id : Integer);
       procedure Salir(Id : Integer);
    private
-      En_Area : Integer := 0;  -- Cuántas vacas hay vacunándose ahora
+      En_Area : Integer := 0;
    end Area_Vacunacion;
 
    protected body Area_Vacunacion is
       entry Entrar(Id : Integer) when En_Area < CAPACIDAD_VACUNAS is
       begin
          En_Area := En_Area + 1;
-         Put_Line("La vaca " & Integer'Image(Id) & " está entrando al área de vacunación");
+         Put_Line("La vaca " & Integer'Image(Id) & " esta entrando al area de vacunacion");
       end Entrar;
 
       procedure Salir(Id : Integer) is
       begin
          En_Area := En_Area - 1;
-         Put_Line("La vaca " & Integer'Image(Id) & " está saliendo del área de vacunación");
+         Put_Line("La vaca " & Integer'Image(Id) & " esta saliendo del area de vacunacion");
       end Salir;
    end Area_Vacunacion;
 
 
-   --------------------------------------------------------------------
-   -- CAMIONES (2 camiones de 50 vacas cada uno)
-   --------------------------------------------------------------------
-   -- Las vacas suben a cualquiera de los dos camiones hasta llenarlos.
+   -- Recurso compartido Camiones
    protected Camiones is
       procedure Subir(Id : Integer);
    private
-      Cant1, Cant2 : Integer := 0;  -- Cantidad de vacas en cada camión
+      Cant1, Cant2 : Integer := 0;
    end Camiones;
 
    protected body Camiones is
@@ -113,10 +95,10 @@ procedure Main is
       begin
          if Cant1 < CAPACIDAD_CAMION then
             Cant1 := Cant1 + 1;
-            Put_Line("La vaca " & Integer'Image(Id) & " está entrando al Camión 1");
+            Put_Line("La vaca " & Integer'Image(Id) & " esta entrando al Camion 1");
          elsif Cant2 < CAPACIDAD_CAMION then
             Cant2 := Cant2 + 1;
-            Put_Line("La vaca " & Integer'Image(Id) & " está entrando al Camión 2");
+            Put_Line("La vaca " & Integer'Image(Id) & " esta entrando al Camion 2");
          end if;
 
          if Cant1 = CAPACIDAD_CAMION and Cant2 = CAPACIDAD_CAMION then
@@ -126,23 +108,19 @@ procedure Main is
    end Camiones;
 
 
-   --------------------------------------------------------------------
-   -- DEFINICIÓN DE LA TAREA DE CADA VACA
-   --------------------------------------------------------------------
-   -- Cada vaca se comporta como una tarea concurrente (thread).
-   -- Todas ejecutan el mismo código, pero con distinto Id.
+  -- La vaca en si con su Id
    task type Vaca(Id : Integer);
 
    task body Vaca is
       Tiempo : Duration;
    begin
-      -- 1) ORDEÑE
+      -- ORDEÑE
       Sala_Ordeñe.Entrar(Id);
       Tiempo := Duration(Random(Gen) * 3.0); -- demora aleatoria (0 a 3 seg)
       delay Tiempo;
       Sala_Ordeñe.Salir(Id);
 
-      -- 2) VACUNACIÓN
+      -- VACUNACIÓN
       Pasillo.Entrar(Id);
       Area_Vacunacion.Entrar(Id);
       Tiempo := Duration(Random(Gen) * 2.0); -- demora aleatoria (0 a 2 seg)
@@ -150,17 +128,14 @@ procedure Main is
       Area_Vacunacion.Salir(Id);
       Pasillo.Salir(Id);
 
-      -- 3) SUBIR AL CAMIÓN
+      -- SUBIR AL CAMIÓN
       Camiones.Subir(Id);
    end Vaca;
 
 
-   --------------------------------------------------------------------
-   -- CREACIÓN DE TODAS LAS VACAS (100 tareas)
-   --------------------------------------------------------------------
 begin
    Reset(Gen);
-   Put_Line("Iniciando simulación del tambo...");
+   Put_Line("Iniciando simulacion del tambo...");
 
    -- Creamos las vacas una por una en un bucle
    declare
