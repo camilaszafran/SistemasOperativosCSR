@@ -352,7 +352,7 @@ crear_reporte() {
     ruta="Datos/datos_${fecha}.csv"
 
     # Crear archivo CSV con encabezado
-    echo "Código,Tipo,Modelo,Descripción,Cantidad,Precio" > "$ruta"
+    echo "Codigo;Tipo;Modelo;Descripcion;Cantidad;Precio" > "$ruta"
 
     # Convertir el formato de productos.txt a CSV
     while IFS= read -r linea; do
@@ -362,7 +362,7 @@ crear_reporte() {
         descripcion=$(echo "$linea" | cut -d'-' -f4 | xargs)
         cantidad=$(echo "$linea" | cut -d'-' -f5 | xargs)
         precio=$(echo "$linea" | cut -d'-' -f6 | tr -d '$' | xargs)
-        echo "${codigo},${tipo},${modelo},${descripcion},${cantidad},${precio}" >> "$ruta"
+        echo "${codigo};${tipo};${modelo};${descripcion};${cantidad};${precio}" >> "$ruta"
     done < productos.txt
 
     echo "Reporte generado correctamente en: $ruta"
