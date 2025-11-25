@@ -1,134 +1,162 @@
-with Ada.Text_IO;
-with Ada.Numerics.Float_Random;
-use Ada.Text_IO;
-use Ada.Numerics.Float_Random;
+with Ada.Text_IO;               use Ada.Text_IO;
+with Ada.Numerics.Float_Random; use Ada.Numerics.Float_Random;
 
 procedure Main is
 
-   -- Acá definimos los límites del problema (cuántas vacas y capacidades)
-   NUM_VACAS : constant Integer := 100;
-   CAPACIDAD_ORDEÑE : constant Integer := 15;
-   CAPACIDAD_VACUNAS : constant Integer := 5;
-   CAPACIDAD_CAMION : constant Integer := 50;
+   NUM_VACAS      : constant Integer := 100;
+   CAP_ORDENIE    : constant Integer := 15;
+   CAP_VACUNACION : constant Integer := 5;
+   CAP_CAMION     : constant Integer := 50;
 
-   -- Generador de números aleatorios (para simular los tiempos variables)
    Gen : Generator;
 
-  -- Recurso compartido sala_ordeñe
-   protected Sala_Ordeñe is
+   task Sala_Ordenie is
       entry Entrar(Id : Integer);
-      procedure Salir(Id : Integer);
-   private
-      En_Sala : Integer := 0;      -- Contador de vacas actualmente ordeñándose
-   end Sala_Ordeñe;
+      entry Salir(Id : Integer);
+   end Sala_Ordenie;
 
-   protected body Sala_Ordeñe is
-      entry Entrar(Id : Integer) when En_Sala < CAPACIDAD_ORDEÑE is
-      begin
-         En_Sala := En_Sala + 1;
-         Put_Line("La vaca " & Integer'Image(Id) & " esta entrando al area de ordenie");
-      end Entrar;
+   task body Sala_Ordenie is
+      Cant : Integer := 0;
+   begin
+      loop
+         select
+            when Cant < CAP_ORDENIE =>
+               accept Entrar(Id : Integer) do
+                  Cant := Cant + 1;
+                  Put_Line("La vaca" & Integer'Image(Id) &
+                           " esta entrando al area de ordenie");
+               end Entrar;
+               delay Duration(Random(Gen) * 3.0);
+         or
+            accept Salir(Id : Integer) do
+               Cant := Cant - 1;
+               Put_Line("La vaca" & Integer'Image(Id) &
+                        " esta saliendo del area de ordenie");
+            end Salir;
+         end select;
+      end loop;
+   end Sala_Ordenie;
 
-      procedure Salir(Id : Integer) is
-      begin
-         En_Sala := En_Sala - 1;
-         Put_Line("La vaca " & Integer'Image(Id) & " esta saliendo del area de ordenie");
-      end Salir;
-   end Sala_Ordeñe;
 
-
-  -- Recurso compartido Pasillo
-   protected Pasillo is
+   task Sala_Vacunacion is
       entry Entrar(Id : Integer);
-      procedure Salir(Id : Integer);
-   private
-      Ocupado : Boolean := False;
+      entry Salir(Id : Integer);
+   end Sala_Vacunacion;
+
+   task body Sala_Vacunacion is
+      Cant : Integer := 0;
+   begin
+      loop
+         select
+            when Cant < CAP_VACUNACION =>
+               accept Entrar(Id : Integer) do
+                  Cant := Cant + 1;
+                  Put_Line("La vaca" & Integer'Image(Id) &
+                           " esta entrando al area de vacunacion");
+               end Entrar;
+               delay Duration(Random(Gen) * 2.0);
+         or
+            accept Salir(Id : Integer) do
+               Cant := Cant - 1;
+               Put_Line("La vaca" & Integer'Image(Id) &
+                        " esta saliendo del area de vacunacion");
+            end Salir;
+         end select;
+      end loop;
+   end Sala_Vacunacion;
+
+
+   task Pasillo is
+      entry Entrar_Entrada(Id : Integer); -- hacia vacunacion
+      entry Entrar_Salida(Id : Integer);  -- desde vacunacion
+      entry Salir(Id : Integer);
    end Pasillo;
 
-   protected body Pasillo is
-      entry Entrar(Id : Integer) when not Ocupado is
-      begin
-         Ocupado := True;
-         Put_Line("La vaca " & Integer'Image(Id) & " esta entrando al pasillo de vacunacion");
-      end Entrar;
+   task body Pasillo is
+      Ocupado        : Boolean := False;
+      En_Vacunacion : Integer := 0;
+   begin
+      loop
+         select
+            -- entrada hacia vacunacion (requiere lugar)
+            when (not Ocupado) and (En_Vacunacion < CAP_VACUNACION) =>
+               accept Entrar_Entrada(Id : Integer) do
+                  Ocupado := True;
+                  En_Vacunacion := En_Vacunacion + 1;
+                  Put_Line("La vaca" & Integer'Image(Id) &
+                           " esta entrando al pasillo de vacunacion");
+               end Entrar_Entrada;
 
-      procedure Salir(Id : Integer) is
-      begin
-         Ocupado := False;
-         Put_Line("La vaca " & Integer'Image(Id) & " salio del pasillo de vacunacion");
-      end Salir;
+         or
+            -- entrada desde vacunacion (requiere que haya alguien vacunandose)
+            when (not Ocupado) and (En_Vacunacion > 0) =>
+               accept Entrar_Salida(Id : Integer) do
+                  Ocupado := True;
+                  En_Vacunacion := En_Vacunacion - 1;
+                  Put_Line("La vaca" & Integer'Image(Id) &
+                           " esta entrando al pasillo de salida");
+               end Entrar_Salida;
+
+         or
+            when Ocupado =>
+               accept Salir(Id : Integer) do
+                  Ocupado := False;
+                  Put_Line("La vaca" & Integer'Image(Id) &
+                           " salio del pasillo");
+               end Salir;
+
+         end select;
+      end loop;
    end Pasillo;
 
-
-   -- Recurso compartido Area_Vacunacion
-   protected Area_Vacunacion is
-      entry Entrar(Id : Integer);
-      procedure Salir(Id : Integer);
-   private
-      En_Area : Integer := 0;
-   end Area_Vacunacion;
-
-   protected body Area_Vacunacion is
-      entry Entrar(Id : Integer) when En_Area < CAPACIDAD_VACUNAS is
-      begin
-         En_Area := En_Area + 1;
-         Put_Line("La vaca " & Integer'Image(Id) & " esta entrando al area de vacunacion");
-      end Entrar;
-
-      procedure Salir(Id : Integer) is
-      begin
-         En_Area := En_Area - 1;
-         Put_Line("La vaca " & Integer'Image(Id) & " esta saliendo del area de vacunacion");
-      end Salir;
-   end Area_Vacunacion;
-
-
-   -- Recurso compartido Camiones
-   protected Camiones is
-      procedure Subir(Id : Integer);
-   private
-      Cant1, Cant2 : Integer := 0;
+   task Camiones is
+      entry Subir(Id : Integer);
    end Camiones;
 
-   protected body Camiones is
-      procedure Subir(Id : Integer) is
-      begin
-         if Cant1 < CAPACIDAD_CAMION then
-            Cant1 := Cant1 + 1;
-            Put_Line("La vaca " & Integer'Image(Id) & " esta entrando al Camion 1");
-         elsif Cant2 < CAPACIDAD_CAMION then
-            Cant2 := Cant2 + 1;
-            Put_Line("La vaca " & Integer'Image(Id) & " esta entrando al Camion 2");
-         end if;
+   task body Camiones is
+      C1 : Integer := 0;
+      C2 : Integer := 0;
+   begin
+      loop
+         accept Subir(Id : Integer) do
+            if C1 < CAP_CAMION then
+               C1 := C1 + 1;
+               Put_Line("La vaca" & Integer'Image(Id) &
+                        " esta entrando al Camion 1");
+            elsif C2 < CAP_CAMION then
+               C2 := C2 + 1;
+               Put_Line("La vaca" & Integer'Image(Id) &
+                        " esta entrando al Camion 2");
+            end if;
 
-         if Cant1 = CAPACIDAD_CAMION and Cant2 = CAPACIDAD_CAMION then
-            Put_Line("Ambos camiones están llenos. Fin de la jornada.");
-         end if;
-      end Subir;
+            if C1 = CAP_CAMION and C2 = CAP_CAMION then
+               Put_Line("Ambos camiones estan llenos. Fin de la jornada.");
+            end if;
+         end Subir;
+      end loop;
    end Camiones;
 
-
-  -- La vaca en si con su Id
    task type Vaca(Id : Integer);
 
    task body Vaca is
-      Tiempo : Duration;
    begin
-      -- ORDEÑE
-      Sala_Ordeñe.Entrar(Id);
-      Tiempo := Duration(Random(Gen) * 3.0); -- demora aleatoria (0 a 3 seg)
-      delay Tiempo;
-      Sala_Ordeñe.Salir(Id);
+      -- Ordenie
+      Sala_Ordenie.Entrar(Id);
+      Sala_Ordenie.Salir(Id);
 
-      -- VACUNACIÓN
-      Pasillo.Entrar(Id);
-      Area_Vacunacion.Entrar(Id);
-      Tiempo := Duration(Random(Gen) * 2.0); -- demora aleatoria (0 a 2 seg)
-      delay Tiempo;
-      Area_Vacunacion.Salir(Id);
+      -- Pasillo
+      Pasillo.Entrar_Entrada(Id);
       Pasillo.Salir(Id);
 
-      -- SUBIR AL CAMIÓN
+      -- Vacunacion
+      Sala_Vacunacion.Entrar(Id);
+      Sala_Vacunacion.Salir(Id);
+
+      -- Pasillo
+      Pasillo.Entrar_Salida(Id);
+      Pasillo.Salir(Id);
+
+      -- Camion
       Camiones.Subir(Id);
    end Vaca;
 
@@ -137,19 +165,13 @@ begin
    Reset(Gen);
    Put_Line("Iniciando simulacion del tambo...");
 
-   -- Creamos las vacas una por una en un bucle
    declare
-      -- Creamos un tipo de acceso (puntero) a tareas Vaca
-      type Acceso_Vaca is access Vaca;
-      Vacas : array (1 .. NUM_VACAS) of Acceso_Vaca;
+      type Ptr is access Vaca;
+      Vacas : array (1 .. NUM_VACAS) of Ptr;
    begin
-      for I in 1 .. NUM_VACAS loop
-         -- Por cada número creamos una nueva tarea vaca con su Id
+      for I in Vacas'Range loop
          Vacas(I) := new Vaca(I);
       end loop;
-
-      -- Este bloque mantiene las tareas vivas hasta que terminen
-      null;
    end;
 
 end Main;
